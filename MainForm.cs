@@ -248,7 +248,7 @@ namespace MyWinFormsApp
             saveFileDialog.Filter = "JPEG Image|*.jpg|PNG Image|*.png";
             if (saveFileDialog.ShowDialog() == DialogResult.OK)
             {
-                originalImage.Save(saveFileDialog.FileName);
+                pictureBoxOriginal.Image.Save(saveFileDialog.FileName);
                 MessageBox.Show("Colored image saved successfully.");
             }
         }
