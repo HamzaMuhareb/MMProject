@@ -1,9 +1,10 @@
 using System;
 using System.Drawing;
-using System.Drawing.Imaging; // Add this using directive
+using System.Drawing.Imaging;
 using System.Windows.Forms;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
+using System.IO;
 
 namespace MyWinFormsApp
 {
@@ -16,12 +17,13 @@ namespace MyWinFormsApp
         private Button btnCrop;
         private Button IdentifyArea;
         private PictureBox pictureBoxOriginal;
-        private PictureBox pictureBoxColored;
         private Button btnSave;
         private Point startPoint;
         private Point endPoint;
         private bool isDrawing = false;
         private ComboBox cmbColorMap;
+        private TextBox txtInput;
+        private Button btnSaveText;
         private enum ColorMap
         {
             Rainbow,
@@ -31,94 +33,121 @@ namespace MyWinFormsApp
         }
 
         ColorMap selectedColorMap;
+
         public MainForm()
         {
-            this.Size = new Size(800, 600);
             InitializeComponent();
         }
 
-
         private void InitializeComponent()
         {
-            // Create a panel to host controls with scrolling enabled
-            Panel panel = new Panel
+            this.Text = "Image Editor";
+            this.MinimumSize = new Size(1280, 720);
+
+            FlowLayoutPanel flowPanel = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
-                AutoScroll = true
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                FlowDirection = FlowDirection.LeftToRight
             };
 
-            // Create controls and set their properties
             btnBrowse = new Button
             {
                 AutoSize = true,
                 Text = "Browse",
-                Location = new Point(20, 20)
+                Margin = new Padding(10)
             };
             btnBrowse.Click += btnBrowse_Click;
 
+            btnSave = new Button
+            {
+                AutoSize = true,
+                Text = "Save Image",
+                Margin = new Padding(10)
+            };
+            btnSave.Click += btnSave_Click;
+
+            cmbColorMap = new ComboBox
+            {
+                Width = 120,
+                Margin = new Padding(10)
+            };
+            cmbColorMap.Items.AddRange(Enum.GetNames(typeof(ColorMap)));
+            cmbColorMap.SelectedIndex = 0;
+            cmbColorMap.SelectedIndexChanged += cmbColorMap_SelectedIndexChanged;
+
+            btnCrop = new Button
+            {
+                AutoSize = true,
+                Text = "Crop",
+                Margin = new Padding(10)
+            };
+            btnCrop.Click += btnCrop_Click;
+
+            IdentifyArea = new Button
+            {
+                AutoSize = true,
+                Text = "Identify Area",
+                Margin = new Padding(10)
+            };
+            IdentifyArea.Click += btnIdentifyArea_Click;
+
+            flowPanel.Controls.Add(btnBrowse);
+            flowPanel.Controls.Add(btnSave);
+            flowPanel.Controls.Add(cmbColorMap);
+            flowPanel.Controls.Add(btnCrop);
+            flowPanel.Controls.Add(IdentifyArea);
+
+            Panel imagePanel = new Panel
+            {
+                Height = 480,
+                Dock = DockStyle.Top,
+                AutoScroll = true,
+                Padding = new Padding(10),
+            };
+
             pictureBoxOriginal = new PictureBox
             {
-                Location = new Point(20, 50),
-                SizeMode = PictureBoxSizeMode.AutoSize
+                SizeMode = PictureBoxSizeMode.AutoSize,
+                Margin = new Padding(10)
             };
             pictureBoxOriginal.MouseDown += pictureBoxOriginal_MouseDown;
             pictureBoxOriginal.MouseMove += pictureBoxOriginal_MouseMove;
             pictureBoxOriginal.MouseUp += pictureBoxOriginal_MouseUp;
             pictureBoxOriginal.Paint += pictureBoxOriginal_Paint;
 
-            pictureBoxColored = new PictureBox
+            imagePanel.Controls.Add(pictureBoxOriginal);
+
+            FlowLayoutPanel textPanel = new FlowLayoutPanel
             {
-                Location = new Point(250, 50),
-                Size = new Size(200, 200)
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                Padding = new Padding(10)
             };
 
-            btnSave = new Button
+            txtInput = new TextBox
+            {
+                Width = 300,
+                Height = 100,
+                Multiline = true,
+                Margin = new Padding(10)
+            };
+
+            btnSaveText = new Button
             {
                 AutoSize = true,
-                Text = "Save",
-                Location = new Point(btnBrowse.Right + 30, 20)
+                Text = "Save Text",
+                Margin = new Padding(10)
             };
-            btnSave.Click += btnSave_Click;
+            btnSaveText.Click += btnSaveText_Click;
 
-            // Add controls to the panel
-            panel.Controls.Add(btnBrowse);
-            panel.Controls.Add(pictureBoxOriginal);
-            panel.Controls.Add(pictureBoxColored);
-            panel.Controls.Add(btnSave);
+            textPanel.Controls.Add(txtInput);
+            textPanel.Controls.Add(btnSaveText);
 
-            cmbColorMap = new ComboBox
-            {
-                Location = new Point(btnSave.Right + 30, 20),
-                Width = 120
-            };
-            cmbColorMap.Items.AddRange(Enum.GetNames(typeof(ColorMap)));
-            cmbColorMap.SelectedIndex = 0; // Select the first color map by default
-            cmbColorMap.SelectedIndexChanged += cmbColorMap_SelectedIndexChanged;
-
-            // Add the combo box to the panel
-            panel.Controls.Add(cmbColorMap);
-
-            btnCrop = new Button
-            {
-                AutoSize = true,
-                Text = "Crop",
-                Location = new Point(cmbColorMap.Right + 130, 20) // Adjust the location as needed
-            };
-            btnCrop.Click += btnCrop_Click;
-            panel.Controls.Add(btnCrop);
-
-            IdentifyArea = new Button
-            {
-                AutoSize = true,
-                Text = "Identify Area",
-                Location = new Point(btnCrop.Right + 20, 20) // Adjust the location as needed
-            };
-            IdentifyArea.Click += btnIdentifyArea_Click; // Assign event handler here
-            panel.Controls.Add(IdentifyArea);
-            
-            
-            // Add the panel to the form
-            Controls.Add(panel);
+            this.Controls.Add(textPanel);
+            this.Controls.Add(imagePanel);
+            this.Controls.Add(flowPanel);
         }
 
         private void btnBrowse_Click(object sender, EventArgs e)
@@ -130,31 +159,24 @@ namespace MyWinFormsApp
 
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                // Load the original image using Bitmap
                 originalImage = new Bitmap(openFileDialog.FileName);
 
-                // Convert the original image to grayscale using Emgu.CV
                 using (Mat imagetest = CvInvoke.Imread(openFileDialog.FileName, ImreadModes.AnyColor))
                 {
                     Mat grayscale = new Mat();
                     CvInvoke.CvtColor(imagetest, grayscale, ColorConversion.Bgr2Gray);
 
-                    // Convert grayscale Mat to an RGB Bitmap while retaining the grayscale appearance
                     modifiedGrayImage = new Bitmap(grayscale.Width, grayscale.Height, PixelFormat.Format24bppRgb);
                     using (Graphics g = Graphics.FromImage(modifiedGrayImage))
                     {
                         g.DrawImage(grayscale.ToBitmap(), new Rectangle(0, 0, grayscale.Width, grayscale.Height));
                     }
 
-                    // Display the grayscale image in pictureBoxOriginal
                     pictureBoxOriginal.Image = modifiedGrayImage;
-                    if (GrayImage == null)
+                    GrayImage = new Bitmap(grayscale.Width, grayscale.Height, PixelFormat.Format24bppRgb);
+                    using (Graphics g = Graphics.FromImage(GrayImage))
                     {
-                        GrayImage = new Bitmap(grayscale.Width, grayscale.Height, PixelFormat.Format24bppRgb);
-                        using (Graphics g = Graphics.FromImage(GrayImage))
-                        {
-                            g.DrawImage(grayscale.ToBitmap(), new Rectangle(0, 0, grayscale.Width, grayscale.Height));
-                        }
+                        g.DrawImage(grayscale.ToBitmap(), new Rectangle(0, 0, grayscale.Width, grayscale.Height));
                     }
                 }
             }
@@ -209,10 +231,9 @@ namespace MyWinFormsApp
                 pictureBoxOriginal.Invalidate();
             }
         }
+
         private void cmbColorMap_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // Handle the event when the user selects a color map
-            // Reapply the color mapping to update the colored areas with the newly selected color map
             if (modifiedGrayImage != null)
             {
                 selectedColorMap = (ColorMap)Enum.Parse(typeof(ColorMap), cmbColorMap.SelectedItem.ToString());
@@ -222,7 +243,6 @@ namespace MyWinFormsApp
 
         private void ColorArea(Rectangle rect, ColorMap colorMap)
         {
-            // Iterate over pixels and apply color mapping based on the selected color map
             for (int x = rect.Left; x < rect.Right; x++)
             {
                 for (int y = rect.Top; y < rect.Bottom; y++)
@@ -230,9 +250,8 @@ namespace MyWinFormsApp
                     if (x >= 0 && x < modifiedGrayImage.Width && y >= 0 && y < modifiedGrayImage.Height)
                     {
                         Color originalColor = GrayImage.GetPixel(x, y);
-                        int brightness = originalColor.R; // Since it's grayscale, R = G = B
+                        int brightness = originalColor.R;
 
-                        // Map brightness to a color based on the selected color map
                         Color mappedColor = MapBrightnessToColor(brightness, colorMap);
 
                         modifiedGrayImage.SetPixel(x, y, mappedColor);
@@ -243,7 +262,6 @@ namespace MyWinFormsApp
 
         private Color MapBrightnessToColor(int brightness, ColorMap colorMap)
         {
-            // Implement color mapping logic based on the selected color map
             switch (colorMap)
             {
                 case ColorMap.Rainbow:
@@ -255,100 +273,80 @@ namespace MyWinFormsApp
                 case ColorMap.None:
                     return MapGray(brightness);
                 default:
-                    return Color.White; // Default color
+                    return Color.White;
             }
         }
 
-
         private Color MapBrightnessToColor_Rainbow(int brightness)
         {
-            // Convert brightness (0-255) to a rainbow color
-
             if (brightness < 64)
             {
-                // Interpolate between blue and green
-                int blue = 255;
-                int green = brightness * 4;
-                return Color.FromArgb(0, green, blue);
+                int red = brightness * 4;
+                return Color.FromArgb(red, 0, 255);
             }
             else if (brightness < 128)
             {
-                // Interpolate between green and yellow
-                int green = 255;
-                int red = (brightness - 64) * 4;
-                return Color.FromArgb(red, green, 0);
+                int green = (brightness - 64) * 4;
+                return Color.FromArgb(255, green, 255);
             }
             else if (brightness < 192)
             {
-                // Interpolate between yellow and red
-                int red = 255;
                 int green = 255 - ((brightness - 128) * 4);
-                return Color.FromArgb(red, green, 0);
+                return Color.FromArgb(255, green, 0);
             }
             else
             {
-                // Interpolate between red and violet
                 int red = 255;
                 int blue = (brightness - 192) * 4;
                 return Color.FromArgb(red, 0, blue);
             }
         }
+
         private Color MapBrightnessToColor_Ocean(int brightness)
         {
-            // Convert brightness (0-255) to an ocean color
-
             if (brightness < 64)
             {
-                // Interpolate between dark blue and blue
                 int blue = 192 + brightness;
                 return Color.FromArgb(0, 0, blue);
             }
             else if (brightness < 128)
             {
-                // Interpolate between blue and turquoise
                 int green = 128 + (brightness - 64);
                 return Color.FromArgb(0, green, 255);
             }
             else if (brightness < 192)
             {
-                // Interpolate between turquoise and light green
                 int green = 255 - (brightness - 128);
                 return Color.FromArgb(64, green, 192);
             }
             else
             {
-                // Interpolate between light green and white
                 int green = 128 - (brightness - 192);
                 return Color.FromArgb(127 + green, 255, 255);
             }
         }
+
         private Color MapBrightnessToColor_Sunset(int brightness)
         {
-            // Convert brightness (0-255) to a sunset color
-
             if (brightness < 64)
             {
-                // Interpolate between yellow and orange
                 int red = brightness * 4;
                 return Color.FromArgb(red, 255, 0);
             }
             else if (brightness < 128)
             {
-                // Interpolate between orange and red
                 int red = 255;
                 int green = 255 - (brightness - 64) * 4;
                 return Color.FromArgb(red, green, 0);
             }
             else if (brightness < 192)
             {
-                // Interpolate between red and dark red
                 int red = 255;
                 int green = 64 - (brightness - 128);
                 return Color.FromArgb(red, green, 0);
             }
             else
             {
-                // Interpolate between dark red and black
                 int red = 128 - (brightness - 192);
                 return Color.FromArgb(red, 0, 0);
             }
@@ -391,19 +389,17 @@ namespace MyWinFormsApp
                 return;
             }
 
-            // Calculate the crop rectangle
             Rectangle cropRect = GetRectangle(startPoint, endPoint);
 
-            // Crop the original image
             GrayImage = CropImage(GrayImage, cropRect);
             modifiedGrayImage = CropImage(modifiedGrayImage, cropRect);
 
-            // Display the cropped image
             pictureBoxOriginal.Image = modifiedGrayImage;
-            
+
             startPoint = Point.Empty;
             endPoint = Point.Empty;
         }
+
         private Bitmap CropImage(Bitmap source, Rectangle cropRect)
         {
             Bitmap croppedImage = new Bitmap(cropRect.Width, cropRect.Height);
@@ -414,29 +410,6 @@ namespace MyWinFormsApp
             }
             return croppedImage;
         }
-
-
-        private void btnIdentifyAreas_Click(object sender, EventArgs e)
-        {
-            if (modifiedGrayImage == null)
-            {
-                MessageBox.Show("Please select an image first.");
-                return;
-            }
-
-            // Add code here to identify specific areas in the image
-        }
-
-        private void btnColorAreas_Click(object sender, EventArgs e)
-        {
-            if (modifiedGrayImage == null)
-            {
-                MessageBox.Show("Please select an image first.");
-                return;
-            }
-        }
-
-
 
         private void btnSave_Click(object sender, EventArgs e)
         {
@@ -457,6 +430,26 @@ namespace MyWinFormsApp
             }
         }
 
-        private Color selectedColor = Color.Yellow; // Default color
+        private void btnSaveText_Click(object sender, EventArgs e)
+        {
+            string text = txtInput.Text;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                MessageBox.Show("Please enter some text to save.");
+                return;
+            }
+
+            SaveFileDialog saveFileDialog = new SaveFileDialog
+            {
+                Filter = "Text Files|*.txt"
+            };
+            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                File.WriteAllText(saveFileDialog.FileName, text);
+                MessageBox.Show("Text saved successfully.");
+            }
+        }
+
+        private Color selectedColor = Color.Yellow;
     }
 }
