@@ -439,15 +439,25 @@ namespace MyWinFormsApp
                 return;
             }
 
-            SaveFileDialog saveFileDialog = new SaveFileDialog
+            // SaveFileDialog saveFileDialog = new SaveFileDialog
+            // {
+            //     Filter = "Text Files|*.txt"
+            // };
+            // if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            // {
+            //     File.WriteAllText(saveFileDialog.FileName, text);
+            //     MessageBox.Show("Text saved successfully.");
+            // }
+
+            using (Graphics g = Graphics.FromImage(modifiedGrayImage))
             {
-                Filter = "Text Files|*.txt"
-            };
-            if (saveFileDialog.ShowDialog() == DialogResult.OK)
-            {
-                File.WriteAllText(saveFileDialog.FileName, text);
-                MessageBox.Show("Text saved successfully.");
+                using (Font font = new Font("Arial", 16))
+                {
+                    g.DrawString(txtInput.Text, font, Brushes.Yellow, startPoint);
+                }
             }
+
+            pictureBoxOriginal.Image = modifiedGrayImage;
         }
 
         private Color selectedColor = Color.Yellow;
