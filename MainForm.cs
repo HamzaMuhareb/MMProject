@@ -13,6 +13,8 @@ namespace MyWinFormsApp
         private Bitmap GrayImage;
         private Bitmap modifiedGrayImage;
         private Button btnBrowse;
+        private Button btnCrop;
+        private Button IdentifyArea;
         private PictureBox pictureBoxOriginal;
         private PictureBox pictureBoxColored;
         private Button btnSave;
@@ -96,6 +98,25 @@ namespace MyWinFormsApp
             // Add the combo box to the panel
             panel.Controls.Add(cmbColorMap);
 
+            btnCrop = new Button
+            {
+                AutoSize = true,
+                Text = "Crop",
+                Location = new Point(cmbColorMap.Right + 130, 20) // Adjust the location as needed
+            };
+            btnCrop.Click += btnCrop_Click;
+            panel.Controls.Add(btnCrop);
+
+            IdentifyArea = new Button
+            {
+                AutoSize = true,
+                Text = "Identify Area",
+                Location = new Point(btnCrop.Right + 20, 20) // Adjust the location as needed
+            };
+            IdentifyArea.Click += btnIdentifyArea_Click; // Assign event handler here
+            panel.Controls.Add(IdentifyArea);
+            
+            
             // Add the panel to the form
             Controls.Add(panel);
         }
@@ -158,7 +179,6 @@ namespace MyWinFormsApp
         {
             isDrawing = false;
             endPoint = e.Location;
-            IdentifyAndColorArea();
         }
 
         private void pictureBoxOriginal_Paint(object sender, PaintEventArgs e)
@@ -339,7 +359,61 @@ namespace MyWinFormsApp
             return Color.FromArgb(brightness, brightness, brightness);
         }
 
+        private void btnIdentifyArea_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Please select an image first.");
+                return;
+            }
 
+            if (startPoint == Point.Empty || endPoint == Point.Empty)
+            {
+                MessageBox.Show("Please select a region to identify and color.");
+                return;
+            }
+            IdentifyAndColorArea();
+            startPoint = Point.Empty;
+            endPoint = Point.Empty;
+        }
+
+        private void btnCrop_Click(object sender, EventArgs e)
+        {
+            if (originalImage == null)
+            {
+                MessageBox.Show("Please select an image first.");
+                return;
+            }
+
+            if (startPoint == Point.Empty || endPoint == Point.Empty)
+            {
+                MessageBox.Show("Please select a region to crop.");
+                return;
+            }
+
+            // Calculate the crop rectangle
+            Rectangle cropRect = GetRectangle(startPoint, endPoint);
+
+            // Crop the original image
+            GrayImage = CropImage(GrayImage, cropRect);
+            modifiedGrayImage = CropImage(modifiedGrayImage, cropRect);
+
+            // Display the cropped image
+            pictureBoxOriginal.Image = modifiedGrayImage;
+            
+            startPoint = Point.Empty;
+            endPoint = Point.Empty;
+        }
+        private Bitmap CropImage(Bitmap source, Rectangle cropRect)
+        {
+            Bitmap croppedImage = new Bitmap(cropRect.Width, cropRect.Height);
+            using (Graphics g = Graphics.FromImage(croppedImage))
+            {
+                g.DrawImage(source, new Rectangle(0, 0, cropRect.Width, cropRect.Height),
+                            cropRect, GraphicsUnit.Pixel);
+            }
+            return croppedImage;
+        }
 
 
         private void btnIdentifyAreas_Click(object sender, EventArgs e)
